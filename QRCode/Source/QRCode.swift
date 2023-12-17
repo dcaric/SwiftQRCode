@@ -100,7 +100,7 @@ open class QRCode: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         colorFilter.setValue(backColor, forKey: "inputColor1")
         
         let transform = CGAffineTransform(scaleX: 10, y: 10)
-        let transformedImage = qrFilter.outputImage!.applying(transform)
+        let transformedImage = qrFilter.outputImage!.transformed(by: transform)
         
         let image = UIImage(ciImage: transformedImage)
         
@@ -173,6 +173,7 @@ open class QRCode: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         view.layer.insertSublayer(previewLayer, at: 0)
     }
     
+    /*
     func setupSession() {
         if session.isRunning {
             print("the capture session is running")
@@ -195,6 +196,38 @@ open class QRCode: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         dataOutput.metadataObjectTypes = dataOutput.availableMetadataObjectTypes;
         dataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
     }
+    */
+    
+    func setupSession() {
+        if session.isRunning {
+            print("The capture session is already running")
+            return
+        }
+
+        // Attempt to unwrap videoInput safely
+        guard let videoInput = videoInput else {
+            print("Video input is nil")
+            // Handle this situation - perhaps by configuring a default input or exiting the function
+            return
+        }
+
+        if !session.canAddInput(videoInput) {
+            print("Cannot add input device")
+            return
+        }
+
+        if !session.canAddOutput(dataOutput) {
+            print("Cannot add output device")
+            return
+        }
+
+        session.addInput(videoInput)
+        session.addOutput(dataOutput)
+
+        dataOutput.metadataObjectTypes = dataOutput.availableMetadataObjectTypes
+        dataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+    }
+
     
     open func captureOutput(_ captureOutput: AVCaptureOutput!, didOutputMetadataObjects metadataObjects: [Any]!, from connection: AVCaptureConnection!) {
         
@@ -210,7 +243,7 @@ open class QRCode: NSObject, AVCaptureMetadataOutputObjectsDelegate {
                     if currentDetectedCount > maxDetectedCount {
                         session.stopRunning()
                         
-                        completedCallBack!(codeObject.stringValue)
+                        completedCallBack!(codeObject.stringValue ?? "")
                         
                         if autoRemoveSubLayers {
                             removeAllLayers()
@@ -274,8 +307,8 @@ open class QRCode: NSObject, AVCaptureMetadataOutputObjectsDelegate {
     /// previewLayer
     lazy var previewLayer: AVCaptureVideoPreviewLayer = {
         let layer = AVCaptureVideoPreviewLayer(session: self.session)
-        layer?.videoGravity = AVLayerVideoGravityResizeAspectFill
-        return layer!
+        layer.videoGravity = AVLayerVideoGravity.resizeAspectFill
+        return layer
         }()
     
     /// drawLayer
@@ -285,7 +318,7 @@ open class QRCode: NSObject, AVCaptureMetadataOutputObjectsDelegate {
     /// input
     lazy var videoInput: AVCaptureDeviceInput? = {
         
-        if let device = AVCaptureDevice.defaultDevice(withMediaType: AVMediaTypeVideo) {
+        if let device = AVCaptureDevice.default(for: .video) {
             return try? AVCaptureDeviceInput(device: device)
         }
         return nil
